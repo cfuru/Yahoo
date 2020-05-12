@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from pandas import DataFrame
 from bs4 import BeautifulSoup
 import requests
 import lxml
