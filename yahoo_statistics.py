@@ -51,6 +51,13 @@ class statistics:
         return table_list
 
     def label_stats(self, table_list):
+        '''
+
+        :param table_list: uses the output of the scrape_page method
+        :return: creates attributes for the statistics class object,
+                 uses indexLabel method to label columns and set the dataframes' index
+        
+        '''
         iterator = [table_list[i][0] for i in range(0, len(table_list))]
         table_list = list(map(lambda df: self.indexLabel(df), iterator))
         self.valuation, self.fiscal_year, self.profitability, self.manager_effect, \
@@ -59,6 +66,12 @@ class statistics:
         return table_list
 
     def indexLabel(self, df):
+        '''
+        
+        :param df: Takes a dataframe as input.
+        :return: returns a dataframe with column labels and a set index.
+        
+        '''
         df.columns = ['Measure', 'Value']
         df = df.set_index('Measure')
         return df
