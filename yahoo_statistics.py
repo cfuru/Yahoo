@@ -10,17 +10,21 @@ from lxml import html
 class statistics:
     base_url = "https://finance.yahoo.com/"
 
-    def __init__(self, symbol):
+        def __init__(self, symbol):
         '''
 
         :param symbol: stock symbol in all caps
         please note that any Canadian TSX stocks are followed with ".TO" ... check the relevant URL for formatting.
         '''
         self.symbol = symbol.upper()
-        self.attributes = ['statistics', 'stats_list']
-        self.methods = ['headers', 'scrape_page', 'label_stats']
         self.path = "quote/{0}/key-statistics?p={0}".format(symbol)
         self.url = self.base_url + self.path
+        self.attributes = ['self.symbol', 'self.path', 'self.url','self.methods', 'self.hdrs', \
+                           'self.valuation', 'self.fiscal_year', \
+                           'self.profitability', 'self.manager_effect', \
+                            'self.income_statement', 'self.balance_sheet', 'self.cash_statement', \
+                            'self.price_history', 'self.share_stats', 'self.dividendSplit']
+        self.methods = ['scrape_page', 'label_stats']
         self.hdrs = {"authority": "finance.yahoo.com",
                      "method": "GET",
                      "path": self.path,
@@ -59,13 +63,13 @@ class statistics:
         
         '''
         iterator = [table_list[i][0] for i in range(0, len(table_list))]
-        table_list = list(map(lambda df: self.indexLabel(df), iterator))
+        table_list = list(map(lambda df: self.__indexLabel__(df), iterator))
         self.valuation, self.fiscal_year, self.profitability, self.manager_effect, \
         self.income_statement, self.balance_sheet, self.cash_statement, \
         self.price_history, self.share_stats, self.dividendSplit = table_list
         return table_list
 
-    def indexLabel(self, df):
+    def __indexLabel__(self, df):
         '''
         
         :param df: Takes a dataframe as input.
