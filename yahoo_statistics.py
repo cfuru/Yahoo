@@ -19,12 +19,12 @@ class statistics:
         self.symbol = symbol.upper()
         self.path = "quote/{0}/key-statistics?p={0}".format(symbol)
         self.url = self.base_url + self.path
+        self.methods = ['scrape_page', 'label_stats']
         self.attributes = ['self.symbol', 'self.path', 'self.url','self.methods', 'self.hdrs', \
                            'self.valuation', 'self.fiscal_year', \
                            'self.profitability', 'self.manager_effect', \
                             'self.income_statement', 'self.balance_sheet', 'self.cash_statement', \
                             'self.price_history', 'self.share_stats', 'self.dividendSplit']
-        self.methods = ['scrape_page', 'label_stats']
         self.hdrs = {"authority": "finance.yahoo.com",
                      "method": "GET",
                      "path": self.path,
