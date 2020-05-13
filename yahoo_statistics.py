@@ -43,7 +43,7 @@ class statistics:
         '''
 
         :return: scrapes the content of the global URL,
-                   using global headers,
+                   using headers defined in the init function,
                    returning a byte string of html code.
         '''
         page = requests.get(self.url, params=self.hdrs)
