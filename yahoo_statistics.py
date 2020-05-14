@@ -42,7 +42,7 @@ class statistics:
     def scrape_page(self):
         '''
 
-        :return: scrapes the content of the global URL,
+        :return: scrapes the content of the class URL,
                    using headers defined in the init function,
                    returning a byte string of html code.
         '''
