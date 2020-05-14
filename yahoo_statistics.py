@@ -46,7 +46,7 @@ class statistics:
                    using headers defined in the init function,
                    returning a byte string of html code.
         '''
-        page = requests.get(self.url, params=self.hdrs)
+        page = requests.get(self.url, headers=self.hdrs)
         soup = BeautifulSoup(page.content, 'lxml')
         tables = soup.find_all('table')
         iterator = range(0, len(tables))
