@@ -11,6 +11,133 @@ from bs4 import BeautifulSoup
 import requests, lxml
 from lxml import html
 
+class yahooMsSqlServer:
+
+    def __init__(self):
+        self.driver= '{SQL Server}'
+        self.server = 'DESKTOP-F0MM68K'
+        self.database = 'christopherFuru'
+        self.schema = 'yahoo'
+        self.tableNameValuation = 'Valuations'
+
+    def connect(self):
+        cnxn = pyodbc.connect('DRIVER=' + self.driver + \
+                            ';SERVER='+ self.server + \
+                            ';DATABASE='+ self.database + \
+                            ';Trusted_Connection=yes')
+        cursor = cnxn.cursor()
+        return cnxn, cursor
+
+    def createValuationTable(self, cnxn, cursor):
+        query_create_temp_table = f"""
+                        CREATE TABLE {self.schema + '.' + self.tableNameValuation} 
+                        (
+                            Ticker      VARCHAR(50) NOT NULL,
+                            Category    VARCHAR(100) NOT NULL,
+                            Date        DATE NOT NULL,
+                            Value       MONEY NOT NULL
+
+                            CONSTRAINT PK_{self.tableNameValuation} PRIMARY KEY (Ticker, Category, Date)
+                        );
+                        """
+        try:
+            cursor.execute(query_create_temp_table)
+            cursor.commit()
+        except:
+            print('Table already exists!')
+
+    def prepareDataframe(self, df):
+        df = pd.melt(df.reset_index(), id_vars = ['Ticker', 'Category'])
+        return df
+
+    def unitConvert(self, data):
+        '''
+
+        :param data: Takes a value as input
+        :return: Returns converted value 
+
+        '''
+        billion = 1_000_000_000
+        million = 1_000_000
+        if data[-1] == 'B':
+            return float(data[:-1])*billion
+        elif data[-1] == 'M':
+            return float(data[:-1])*million
+        else:
+            return float(data)
+
+    def insertIntoValuationTable(self, df, cnxn, cursor):
+        df = self.prepareDataframe(df)
+
+        query_create_temp_table = f"""
+                        CREATE TABLE #{self.tableNameValuation} 
+                        (
+                            Ticker      VARCHAR(50) NOT NULL,
+                            Category    VARCHAR(100) NOT NULL,
+                            Date        DATE NOT NULL,
+                            Value       MONEY NOT NULL
+
+                            CONSTRAINT PK_#{self.tableNameValuation} PRIMARY KEY (Ticker, Category, Date)
+                        );
+                        """
+        cursor.execute(query_create_temp_table)
+        cursor.commit()
+
+        query_insert_into_temp_table = f"""
+                        INSERT INTO #{self.tableNameValuation} VALUES 
+                    """
+        for i, item in enumerate(df.values.tolist()):
+            query_insert_into_temp_table += "('" + str(item[0]) + "','" + str(item[1]) + "','" + str(item[2]) + "','" + str(self.unitConvert(item[3])) +  "')"
+            if i < len(df.values.tolist())-1:
+                query_insert_into_temp_table += ","
+            else:
+                query_insert_into_temp_table += ";"
+
+        cursor.execute(query_insert_into_temp_table)
+        cursor.commit()
+
+        query_merge = f"""
+                        MERGE
+                            {self.schema + '.' + self.tableNameValuation}
+                        AS
+                            D
+                        USING
+                        (
+                            SELECT * FROM #{self.tableNameValuation}
+                        ) AS S ON
+                            S.Ticker = D.Ticker AND
+                            S.Category = D.Category AND
+                            S.Date = D.Date
+                        WHEN MATCHED AND
+                            D.Value <> S.Value
+                        THEN UPDATE SET
+                            D.Value = S.Value
+                        WHEN NOT MATCHED THEN INSERT
+                        (
+                            Ticker,
+                            Category,
+                            Date,
+                            Value
+                        )
+                        VALUES
+                        (
+                            S.Ticker,
+                            S.Category,
+                            S.Date,
+                            S.Value
+                        );
+        """
+        cursor.execute(query_merge)
+        cursor.commit()
+
+        cursor.execute(f"DROP TABLE #{self.tableNameValuation}")
+        cursor.commit()
+
+        cursor.close()
+        cnxn.close()
+        print("Done.")
+
+#########################################################################################
 
 class statistics:
     base_url = "https://finance.yahoo.com/"
@@ -19,7 +146,7 @@ class statistics:
         self.symbol = symbol.upper()
         self.path = "quote/{0}/key-statistics?p={0}".format(symbol)
         self.url = self.base_url + self.path
-        self.methods = ['scrape_page', 'label_stats']
+        self.methods = ['scrape', 'labelTables']
         self.attributes = ['self.symbol', 'self.path', 'self.url','self.methods', 'self.hdrs', \
                             'self.valuation', 'self.fiscal_year', \
                             'self.profitability', 'self.manager_effect', \
@@ -34,7 +161,7 @@ class statistics:
                         AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36'
                    }
 
-    def scrape_page(self):
+    def scrape(self):
         '''
         :return: scrapes the content of the class URL,
                    using headers defined in the init function,
@@ -48,9 +175,9 @@ class statistics:
         table_list = list(map(function, iterator))
         return table_list
 
-    def label_stats(self, table_list):
+    def labelTables(self, table_list):
         '''
-        :param table_list: uses the output of the scrape_page method
+        :param table_list: uses the output of the scrape method
         :return: creates attributes for the statistics class object,
                  uses indexLabel method to label columns and set the dataframes' index
         
@@ -63,7 +190,7 @@ class statistics:
         self.price_history, self.share_stats, self.trams = table_list
         return self.valuation
 
-    def clean_category_rows(self, df):
+    def cleanCategoryRows(self, df):
         '''
         
         :param df: Takes a dataframe as input
@@ -74,7 +201,13 @@ class statistics:
         
         return df
 
-    def clean_label_names(self, cols):
+    def cleanDateCol(self, cols):
+        '''
+
+        :param cols: Takes list of column names
+        :return: Returns list of a list of new column names
+
+        '''
         try:
             cols.values[1] = dparser.parse(cols[1], fuzzy=True).strftime("%m/%d/%Y") #Fuzzy logic to find date in text for column naming
         except:
@@ -84,17 +217,28 @@ class statistics:
         cols.insert(0, 'Category') 
         return cols
 
-    def unit_converter(self, df):
+    def unitConvert(self, data):
+        '''
+
+        :param data: Takes a value as input
+        :return: Returns converted value 
+
+        '''
         billion = 1_000_000_000
         million = 1_000_000
-        if df[-1] == 'B':
-            return float(df[:-1])*billion
-        elif df[-1] == 'M':
-            return float(df[:-1])*million
+        if data[-1] == 'B':
+            return float(data[:-1])*billion
+        elif data[-1] == 'M':
+            return float(data[:-1])*million
         else:
-            return float(df)
+            return float(data)
 
-    def mssql_connection(self):
+    def msSqlConnection(self):
+        '''
+
+        :return: Database connection and cursor 
+
+        '''
         pyodbc.pooling = False
         server = 'DESKTOP-F0MM68K'
         database = 'christopherFuru'
@@ -108,16 +252,26 @@ class statistics:
 
         return cnxn, cursor
 
-    def insert_mssql(self, df, cursor, cnxn):
+    def msSqlInsert(self, df, cursor, cnxn):
+        '''
+
+        :param df, cursor, cnxn: Takes dataframe, database connection and cursor
+        :return: Inserting data into predefined database table (same structor as temp table #Valuations) 
+
+        '''
         df['Ticker'] = self.symbol
         df = pd.melt(df.reset_index(), id_vars = ['Ticker', 'Category'])
 
         query_create_temp_table = """
-                        CREATE TABLE #Valuations (
-                        Ticker VARCHAR(50) NOT NULL,
-                        Category VARCHAR(100) NOT NULL,
-                        Date DATE NOT NULL,
-                        Value MONEY NOT NULL);
+                        CREATE TABLE #Valuations 
+                        (
+                            Ticker      VARCHAR(50) NOT NULL,
+                            Category    VARCHAR(100) NOT NULL,
+                            Date        DATE NOT NULL,
+                            Value       MONEY NOT NULL
+
+                            CONSTRAINT PK_#Valuations PRIMARY KEY (Ticker, Category, Date)
+                        );
                         """
         cursor.execute(query_create_temp_table)
         cursor.commit()
@@ -126,12 +280,11 @@ class statistics:
                         INSERT INTO #Valuations VALUES 
                     """
         for i, item in enumerate(df.values.tolist()):
-            query_insert_into_temp_table += "('" + str(item[0]) + "','" + str(item[1]) + "','" + str(item[2]) + "','" + str(self.unit_converter(item[3])) +  "')"
+            query_insert_into_temp_table += "('" + str(item[0]) + "','" + str(item[1]) + "','" + str(item[2]) + "','" + str(self.unitConvert(item[3])) +  "')"
             if i < len(df.values.tolist())-1:
                 query_insert_into_temp_table += ","
             else:
                 query_insert_into_temp_table += ";"
-        # print(insert_query)
 
         cursor.execute(query_insert_into_temp_table)
         cursor.commit()
@@ -184,25 +337,19 @@ class statistics:
         :return: returns a dataframe with cleaned column labels and a set index.
         
         '''
-        df.columns = self.clean_label_names(df.columns)
-        df = self.clean_category_rows(df)
+        df.columns = self.cleanDateCol(df.columns)
+        df = self.cleanCategoryRows(df)
 
-        # df['Ticker'] = self.symbol
+        df['Ticker'] = self.symbol
         df = df.set_index('Category')
         df = df.dropna()
         return df
 
 if __name__ == "__main__":
     shopify_stats = statistics('AAK.ST')
-    table_list = shopify_stats.scrape_page()
-    table_list = shopify_stats.label_stats(table_list)
-    cnxn, cursor = shopify_stats.mssql_connection()
-    shopify_stats.insert_mssql(table_list, cursor, cnxn)
-
-    # table_list = pd.melt(table_list.reset_index(), id_vars = ['Ticker', 'Category'])
-
-# table_list
-
-# table_list['Category'] = table_list.apply(lambda row: re.sub(r'\d+', '', row['Category']), axis = 1)
-# table_list
-# re.sub(r'\d+', '', df.columns[i])
+    table_list = shopify_stats.scrape()
+    table_list = shopify_stats.labelTables(table_list)
+    sql = yahooMsSqlServer()
+    cnxn, cursor = sql.connect()
+    # sql.createValuationTable(cnxn, cursor)
+    sql.insertIntoValuationTable(table_list, cnxn, cursor)
