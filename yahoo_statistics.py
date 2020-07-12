@@ -28,6 +28,10 @@ class yahooMsSqlServer:
         cursor = cnxn.cursor()
         return cnxn, cursor
 
+    def disconnect(self):
+        cursor.close()
+        cnxn.close()
+
     def createValuationTable(self, cnxn, cursor):
         query_create_temp_table = f"""
                         CREATE TABLE {self.schema + '.' + self.tableNameValuation} 
@@ -57,19 +61,32 @@ class yahooMsSqlServer:
         :return: Returns converted value 
 
         '''
+        trillion = 1_000_000_000_000
         billion = 1_000_000_000
         million = 1_000_000
-        if data[-1] == 'B':
-            return float(data[:-1])*billion
-        elif data[-1] == 'M':
-            return float(data[:-1])*million
-        else:
-            return float(data)
+        thousand = 1_000
+        try:
+            if data[-1] == 'T':
+                return float(data[:-1])*trillion
+            elif data[-1] == 'B':
+                return float(data[:-1])*billion
+            elif data[-1] == 'M':
+                return float(data[:-1])*million
+            elif data[-1] == 'k':
+                return float(data[:-1])*thousand
+            else:
+                return float(data)
+        except:
+            pass
 
     def insertIntoValuationTable(self, df, cnxn, cursor):
         df = self.prepareDataframe(df)
 
+
         query_create_temp_table = f"""
+                        IF OBJECT_ID(N'tempdb..#{self.tableNameValuation}') IS NOT NULL
+                            DROP TABLE #{self.tableNameValuation}
+                        
                         CREATE TABLE #{self.tableNameValuation} 
                         (
                             Ticker      VARCHAR(50) NOT NULL,
@@ -130,12 +147,7 @@ class yahooMsSqlServer:
         cursor.execute(query_merge)
         cursor.commit()
 
-        cursor.execute(f"DROP TABLE #{self.tableNameValuation}")
-        cursor.commit()
-
-        cursor.close()
-        cnxn.close()
-        print("Done.")
+        print("SQL-merge done!")
 
 #########################################################################################
 
@@ -167,12 +179,13 @@ class statistics:
                    using headers defined in the init function,
                    returning a byte string of html code.
         '''
-        page = requests.get(self.url, headers=self.hdrs)
+        page = requests.get(self.url, headers = self.hdrs)
         soup = BeautifulSoup(page.content, 'lxml')
         tables = soup.find_all('table')
         iterator = range(0, len(tables))
         function = lambda x: pd.read_html(str(tables[x]))
         table_list = list(map(function, iterator))
+        print(f'Scraping {self.symbol} using url: {self.url}')
         return table_list
 
     def labelTables(self, table_list):
@@ -185,10 +198,7 @@ class statistics:
 
         iterator = [table_list[i][0] for i in range(0, len(table_list))]
         table_list = list(map(lambda df: self.__indexLabel__(df), iterator))
-        self.valuation, self.fiscal_year, self.profitability, self.manager_effect, \
-        self.income_statement, self.balance_sheet, self.cash_statement, \
-        self.price_history, self.share_stats, self.trams = table_list
-        return self.valuation#table_list
+        return table_list
 
     def cleanCategoryRows(self, df):
         '''
@@ -231,12 +241,23 @@ class statistics:
         df = df.set_index('Category')
         df = df.dropna()
         return df
-
+    
 if __name__ == "__main__":
-    shopify_stats = statistics('AAK.ST')
-    table_list = shopify_stats.scrape()
-    table_list = shopify_stats.labelTables(table_list)
+    companyData = pd.read_excel('C:\\Users\\chris\\OneDrive\\Programmering\\Python\\Jupyter notebooks\\tickers.xlsx')
+    tickers = companyData.Ticker
     sql = yahooMsSqlServer()
+    
     cnxn, cursor = sql.connect()
-    # sql.createValuationTable(cnxn, cursor)
-    sql.insertIntoValuationTable(table_list, cnxn, cursor)
+    for index, tick in enumerate(tickers):
+        try:
+            print(f'{index} out of {len(tickers)}: ')
+            shopify_stats = statistics(tick)
+            table_list = shopify_stats.scrape()
+            table_list = shopify_stats.labelTables(table_list)
+            if len(table_list[0]) > 0: sql.insertIntoValuationTable(table_list[0], cnxn, cursor) #i.e. holds any data
+            print('')
+        except:
+            print(f'Could not fetch data for {tick}')
+            pass
+    
+    sql.disconnect()
