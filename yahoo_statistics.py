@@ -188,7 +188,7 @@ class statistics:
         self.valuation, self.fiscal_year, self.profitability, self.manager_effect, \
         self.income_statement, self.balance_sheet, self.cash_statement, \
         self.price_history, self.share_stats, self.trams = table_list
-        return self.valuation
+        return self.valuation#table_list
 
     def cleanCategoryRows(self, df):
         '''
@@ -216,119 +216,6 @@ class statistics:
         cols = list(cols[i] for i in range(1, len(cols)))
         cols.insert(0, 'Category') 
         return cols
-
-    def unitConvert(self, data):
-        '''
-
-        :param data: Takes a value as input
-        :return: Returns converted value 
-
-        '''
-        billion = 1_000_000_000
-        million = 1_000_000
-        if data[-1] == 'B':
-            return float(data[:-1])*billion
-        elif data[-1] == 'M':
-            return float(data[:-1])*million
-        else:
-            return float(data)
-
-    def msSqlConnection(self):
-        '''
-
-        :return: Database connection and cursor 
-
-        '''
-        pyodbc.pooling = False
-        server = 'DESKTOP-F0MM68K'
-        database = 'christopherFuru'
-        driver= '{SQL Server}'
-
-        cnxn = pyodbc.connect('DRIVER='+driver+ \
-                            ';SERVER='+server+ \
-                            ';DATABASE='+database + \
-                            ';Trusted_Connection=yes')
-        cursor = cnxn.cursor()
-
-        return cnxn, cursor
-
-    def msSqlInsert(self, df, cursor, cnxn):
-        '''
-
-        :param df, cursor, cnxn: Takes dataframe, database connection and cursor
-        :return: Inserting data into predefined database table (same structor as temp table #Valuations) 
-
-        '''
-        df['Ticker'] = self.symbol
-        df = pd.melt(df.reset_index(), id_vars = ['Ticker', 'Category'])
-
-        query_create_temp_table = """
-                        CREATE TABLE #Valuations 
-                        (
-                            Ticker      VARCHAR(50) NOT NULL,
-                            Category    VARCHAR(100) NOT NULL,
-                            Date        DATE NOT NULL,
-                            Value       MONEY NOT NULL
-
-                            CONSTRAINT PK_#Valuations PRIMARY KEY (Ticker, Category, Date)
-                        );
-                        """
-        cursor.execute(query_create_temp_table)
-        cursor.commit()
-
-        query_insert_into_temp_table = """
-                        INSERT INTO #Valuations VALUES 
-                    """
-        for i, item in enumerate(df.values.tolist()):
-            query_insert_into_temp_table += "('" + str(item[0]) + "','" + str(item[1]) + "','" + str(item[2]) + "','" + str(self.unitConvert(item[3])) +  "')"
-            if i < len(df.values.tolist())-1:
-                query_insert_into_temp_table += ","
-            else:
-                query_insert_into_temp_table += ";"
-
-        cursor.execute(query_insert_into_temp_table)
-        cursor.commit()
-
-        query_merge = """
-                        MERGE
-                            Yahoo.Valuations
-                        AS
-                            D
-                        USING
-                        (
-                            SELECT * FROM #Valuations
-                        ) AS S ON
-                            S.Ticker = D.Ticker AND
-                            S.Category = D.Category AND
-                            S.Date = D.Date
-                        WHEN MATCHED AND
-                            D.Value <> S.Value
-                        THEN UPDATE SET
-                            D.Value = S.Value
-                        WHEN NOT MATCHED THEN INSERT
-                        (
-                            Ticker,
-                            Category,
-                            Date,
-                            Value
-                        )
-                        VALUES
-                        (
-                            S.Ticker,
-                            S.Category,
-                            S.Date,
-                            S.Value
-                        );
-        """
-        cursor.execute(query_merge)
-        cursor.commit()
-
-        cursor.execute("DROP TABLE #Valuations")
-        cursor.commit()
-
-        cursor.close()
-        cnxn.close()
-        print("Done.")
 
     def __indexLabel__(self, df):
         '''
