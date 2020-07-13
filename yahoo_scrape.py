@@ -1,6 +1,8 @@
 import pandas as pd
+from pandas_datareader import data as web
 import numpy as np
 import re
+
 
 import dateutil.parser as dparser
 from datetime import datetime
@@ -10,11 +12,9 @@ from bs4 import BeautifulSoup
 import requests, lxml
 from lxml import html
 
-from yahoo_sql import * 
-
 #########################################################################################
 
-class scrape:
+class fundamentals:
     base_url = "https://finance.yahoo.com/"
 
     def __init__(self, symbol):
@@ -104,34 +104,22 @@ class scrape:
         df = df.set_index('Category')
         df = df.dropna()
         return df
+
+class prices:
     
-# if __name__ == "__main__":
-#     companyData = pd.read_excel('C:\\Users\\chris\\OneDrive\\Programmering\\Python\\Jupyter notebooks\\tickers.xlsx')
-#     tickers = companyData.Ticker
-#     sql = sql.statisticsTable()
-    
-#     cnxn, cursor = sql.connect()
-#     for index, tick in enumerate(tickers):
-#         try:
-#             print(f'{index} out of {len(tickers)}: ')
-#             shopify_stats = statistics(tick)
-#             table_list = shopify_stats.scrape()
-#             table_list = shopify_stats.labelTables(table_list)
-#             if len(table_list[0]) > 0: sql.insertIntoValuationTable(table_list[0], cnxn, cursor) #i.e. holds any data
-#             print('')
-#         except:
-#             print(f'Could not fetch data for {tick}')
-#             pass
+    def __init__(self, symbol, startDate, endDate):
+        self.dataSource = 'yahoo'
+        self.symbol = symbol.upper()
+        self.startDate = startDate
+        self.endDate = endDate
 
+    def getAdjClose(self):
+        dailyPrices = web.DataReader(
+            self.symbol, 
+            data_source = self.dataSource, 
+            start = self.startDate, 
+            end = self.endDate)
+        
+        dailyPrices['Ticker'] = self.symbol
 
-if __name__ == "__main__":
-    sql = statistics()
-    cnxn, cursor = sql.connect()
-
-    try:
-        shopify_stats = scrape('ERIC-A.ST')
-        table_list = shopify_stats.scrape()
-        table_list = shopify_stats.labelTables(table_list)
-        if len(table_list[0]) > 0: sql.merge(table_list[0], cnxn, cursor) #i.e. holds any data
-    except:
-        pass
+        return dailyPrices[['Adj Close', 'Ticker']].reset_index()

@@ -1,14 +1,14 @@
 import pyodbc
 import pandas as pd
 
-class statistics:
+class fundamentals:
 
     def __init__(self):
         self.driver= '{SQL Server}'
         self.server = 'DESKTOP-F0MM68K'
         self.database = 'christopherFuru'
         self.schema = 'yahoo'
-        self.tableNameValuation = 'Statistics'
+        self.tableNameValuation = 'fundamentals'
 
     def connect(self):
         cnxn = pyodbc.connect('DRIVER=' + self.driver + \
@@ -20,14 +20,14 @@ class statistics:
 
     def createTable(self, cnxn, cursor):
         query_create_temp_table = f"""
-                        CREATE TABLE {self.schema + '.' + self.tableNameValuation} 
+                        CREATE TABLE {self.schema + '.[' + self.tableNameValuation + ']'} 
                         (
                             Ticker      VARCHAR(50) NOT NULL,
                             Category    VARCHAR(100) NOT NULL,
                             Date        DATE NOT NULL,
                             Value       MONEY NOT NULL
 
-                            CONSTRAINT PK_{self.tableNameValuation} PRIMARY KEY (Ticker, Category, Date)
+                            CONSTRAINT PK_[{self.tableNameValuation}] PRIMARY KEY (Ticker, Category, Date)
                         );
                         """
         try:
@@ -80,7 +80,7 @@ class statistics:
                             Date        DATE NOT NULL,
                             Value       MONEY NOT NULL
 
-                            CONSTRAINT PK_#{self.tableNameValuation} PRIMARY KEY (Ticker, Category, Date)
+                            --CONSTRAINT PK_#{self.tableNameValuation} PRIMARY KEY (Ticker, Category, Date)
                         );
                         """
         cursor.execute(query_create_temp_table)
@@ -101,7 +101,7 @@ class statistics:
 
         query_merge = f"""
                         MERGE
-                            {self.schema + '.' + self.tableNameValuation}
+                            {self.schema + '.[' + self.tableNameValuation + ']'}
                         AS
                             D
                         USING
