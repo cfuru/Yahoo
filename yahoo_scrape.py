@@ -114,12 +114,18 @@ class prices:
         self.endDate = endDate
 
     def getAdjClose(self):
-        dailyPrices = web.DataReader(
-            self.symbol, 
-            data_source = self.dataSource, 
-            start = self.startDate, 
-            end = self.endDate)
+        try:
+            dailyPrices = web.DataReader(
+                self.symbol, 
+                data_source = self.dataSource, 
+                start = self.startDate, 
+                end = self.endDate)
+            dailyPrices['Ticker'] = self.symbol
+            return dailyPrices[['Adj Close', 'Ticker']].reset_index()
+        except: 
+            print(f'Could not fetch data for {self.symbol}')
+            pass
         
-        dailyPrices['Ticker'] = self.symbol
+        
 
-        return dailyPrices[['Adj Close', 'Ticker']].reset_index()
+        
