@@ -68,11 +68,11 @@ class fundamentals:
     def merge(self, df, cnxn, cursor):
         df = self.prepareDf(df)
 
+        cursor.execute(f"""IF OBJECT_ID(N'tempdb..#{self.tableNameValuation}') IS NOT NULL
+                        DROP TABLE #{self.tableNameValuation};""")
+        cursor.commit()
 
         query_create_temp_table = f"""
-                        IF OBJECT_ID(N'tempdb..#{self.tableNameValuation}') IS NOT NULL
-                            DROP TABLE #{self.tableNameValuation}
-                        
                         CREATE TABLE #{self.tableNameValuation} 
                         (
                             Ticker      VARCHAR(50) NOT NULL,
@@ -128,6 +128,104 @@ class fundamentals:
                             S.Category,
                             S.Date,
                             S.Value
+                        );
+        """
+        cursor.execute(query_merge)
+        cursor.commit()
+
+        print("SQL-merge done!")
+
+
+class prices:
+    def __init__(self):
+        self.driver= '{SQL Server}'
+        self.server = 'DESKTOP-F0MM68K'
+        self.database = 'christopherFuru'
+        self.schema = 'yahoo'
+        self.tableNameValuation = 'prices'
+
+    def connect(self):
+        cnxn = pyodbc.connect('DRIVER=' + self.driver + \
+                            ';SERVER='+ self.server + \
+                            ';DATABASE='+ self.database + \
+                            ';Trusted_Connection=yes')
+        cursor = cnxn.cursor()
+        return cnxn, cursor
+
+    def createTable(self, cnxn, cursor):
+        query_create_temp_table = f"""
+                        CREATE TABLE {self.schema + '.[' + self.tableNameValuation + ']'} 
+                        (
+                            Date                Date NOT NULL,
+                            Ticker              VARCHAR(100) NOT NULL,
+                            ClosePriceInSek     MONEY NOT NULL,
+
+                            CONSTRAINT PK_{self.tableNameValuation} PRIMARY KEY (Date, Ticker)
+                        );
+                        """
+        try:
+            cursor.execute(query_create_temp_table)
+            cursor.commit()
+        except:
+            print('Table already exists!')
+
+    def merge(self, df, cnxn, cursor):
+        cursor.execute(f"""IF OBJECT_ID(N'tempdb..#{self.tableNameValuation}') IS NOT NULL
+                        DROP TABLE #{self.tableNameValuation};""")
+        cursor.commit()
+
+        query_create_temp_table = f"""
+                        CREATE TABLE #{self.tableNameValuation} 
+                        (
+                            Date                Date NOT NULL,
+                            Ticker              VARCHAR(100) NOT NULL,
+                            ClosePriceInSek     MONEY NOT NULL,
+
+                            CONSTRAINT PK_#{self.tableNameValuation} PRIMARY KEY (Date, Ticker)
+                        );
+                        """
+        cursor.execute(query_create_temp_table)
+        cursor.commit()
+
+        query_insert_into_temp_table = f"""
+                        INSERT INTO #{self.tableNameValuation} VALUES 
+                    """
+        for i, item in enumerate(df.values.tolist()):
+            query_insert_into_temp_table += "('" + str(item[0]) + "','" + str(item[2]) + "','" + str(item[1]) +  "')"
+            if i < len(df.values.tolist())-1:
+                query_insert_into_temp_table += ","
+            else:
+                query_insert_into_temp_table += ";"
+
+        cursor.execute(query_insert_into_temp_table)
+        cursor.commit()
+
+        query_merge = f"""
+                        MERGE
+                            {self.schema + '.[' + self.tableNameValuation + ']'}
+                        AS
+                            D
+                        USING
+                        (
+                            SELECT * FROM #{self.tableNameValuation}
+                        ) AS S ON
+                            S.Date = D.Date AND
+                            S.Ticker = D.Ticker
+                        WHEN MATCHED AND
+                            D.ClosePriceInSek <> S.ClosePriceInSek
+                        THEN UPDATE SET
+                            D.ClosePriceInSek = S.ClosePriceInSek
+                        WHEN NOT MATCHED THEN INSERT
+                        (
+                            Date,
+                            Ticker,
+                            ClosePriceInSek
+                        )
+                        VALUES
+                        (
+                            S.Date,
+                            S.Ticker,
+                            S.ClosePriceInSek
                         );
         """
         cursor.execute(query_merge)
