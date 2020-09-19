@@ -28,8 +28,8 @@ class fundamentals:
                             Value       MONEY NOT NULL
 
                             CONSTRAINT PK_[{self.tableNameValuation}] PRIMARY KEY (Ticker, Category, Date)
-                        );
-                        """
+                        );"""
+                        
         try:
             cursor.execute(query_create_temp_table)
             cursor.commit()
@@ -142,7 +142,7 @@ class prices:
         self.server = 'DESKTOP-F0MM68K'
         self.database = 'christopherFuru'
         self.schema = 'yahoo'
-        self.tableNameValuation = 'prices'
+        self.tableNameValuation = 'Prices'
 
     def connect(self):
         cnxn = pyodbc.connect('DRIVER=' + self.driver + \
