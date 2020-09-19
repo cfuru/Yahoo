@@ -74,7 +74,7 @@ class fundamentals:
         
         return df
 
-    def cleanDateCol(self, cols):
+    def cleanColNames(self, cols):
         '''
 
         :param cols: Takes list of column names
@@ -97,7 +97,7 @@ class fundamentals:
         :return: returns a dataframe with cleaned column labels and a set index.
         
         '''
-        df.columns = self.cleanDateCol(df.columns)
+        df.columns = self.cleanColNames(df.columns)
         df = self.cleanCategoryRows(df)
 
         df['Ticker'] = self.symbol
@@ -125,7 +125,3 @@ class prices:
         except: 
             print(f'Could not fetch data for {self.symbol}')
             pass
-        
-        
-
-        
