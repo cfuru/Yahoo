@@ -22,10 +22,10 @@ class fundamentals:
         query_create_temp_table = f"""
                         CREATE TABLE {self.schema + '.[' + self.tableNameValuation + ']'} 
                         (
-                            Ticker      VARCHAR(50) NOT NULL,
-                            Category    VARCHAR(100) NOT NULL,
-                            Date        DATE NOT NULL,
-                            Value       MONEY NOT NULL
+                            Ticker          VARCHAR(50) NOT NULL,
+                            Category        VARCHAR(100) NOT NULL,
+                            Date            DATE NOT NULL,
+                            Value           MONEY NOT NULL
 
                             CONSTRAINT PK_[{self.tableNameValuation}] PRIMARY KEY (Ticker, Category, Date)
                         );"""
@@ -75,10 +75,10 @@ class fundamentals:
         query_create_temp_table = f"""
                         CREATE TABLE #{self.tableNameValuation} 
                         (
-                            Ticker      VARCHAR(50) NOT NULL,
-                            Category    VARCHAR(100) NOT NULL,
-                            Date        DATE NOT NULL,
-                            Value       MONEY NOT NULL
+                            Ticker          VARCHAR(50) NOT NULL,
+                            Category        VARCHAR(100) NOT NULL,
+                            Date            DATE NOT NULL,
+                            Value           MONEY NOT NULL
 
                             --CONSTRAINT PK_#{self.tableNameValuation} PRIMARY KEY (Ticker, Category, Date)
                         );
@@ -120,14 +120,16 @@ class fundamentals:
                             Ticker,
                             Category,
                             Date,
-                            Value
+                            Value,
+                            DateInserted
                         )
                         VALUES
                         (
                             S.Ticker,
                             S.Category,
                             S.Date,
-                            S.Value
+                            S.Value,
+                            CONVERT(DATE, GETDATE())
                         );
         """
         cursor.execute(query_merge)
